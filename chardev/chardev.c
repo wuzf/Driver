@@ -3,7 +3,7 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
-
+#include <asm/uaccess.h>
 //=======================字符设备驱动模板开始 ===========================//
 #define CHAR_DEV_DEVICE_NAME   "char_dev"   // 是应当连接到这个编号范围的设备的名字，出现在/proc/devices和sysfs中
 #define CHAR_DEV_NODE_NAME   "char_dev"   // 节点名，出现在/dev中
@@ -11,6 +11,7 @@
 struct class *char_dev_class;  // class结构用于自动创建设备结点 
 static int major = 0;// 0表示动态分配主设备号，可以设置成未被系统分配的具体的数字。
 static struct cdev char_dev_cdev;// 定义一个cdev结构
+static int value = 0;
 
 // 进行初始化设置，打开设备，对应应用空间的open 系统调用 
 int char_dev_open(struct inode *inode, struct file *filp)
@@ -34,12 +35,14 @@ static int char_dev_release (struct inode *node, struct file *file)
 ssize_t char_dev_read(struct file *file,char __user *buff,size_t count,loff_t *offp)
 {
     printk("char_dev device read.\n");
+    copy_to_user(buff, &value, sizeof(value));
     return 0;
 }
 // 实现写功能，写设备，对应应用空间的write 系统调用
 ssize_t char_dev_write(struct file *file,const char __user *buff,size_t count,loff_t *offp)
 {
     printk("char_dev device write.\n");
+    copy_from_user(&value, buff, count);
     return 0;
 }
  
@@ -47,6 +50,20 @@ ssize_t char_dev_write(struct file *file,const char __user *buff,size_t count,lo
 static int char_dev_ioctl(struct inode *inode,struct file *file,unsigned int cmd,unsigned long arg)
 {  
     printk("char_dev device ioctl.\n");
+    switch (cmd)
+    {
+        case 0://read
+            *((unsigned int *)arg)=value;
+            printk(KERN_ALERT"wzf test ioctl read value=%d!\n",value);
+            break;
+        case 1://write
+            value=(int)arg;
+            printk(KERN_ALERT"wzf test ioctl write %d!\n",(int)arg); 
+            break;
+        default:
+            printk(KERN_ALERT"default!"); 
+            break;/* Invalid argument */
+    }
     return 0;
 }
 
