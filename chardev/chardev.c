@@ -21,9 +21,22 @@ static int read_from_file(void)
     mm_segment_t old_fs;
     ssize_t ret;
     printk("read_from_file.\n");
-    filp = filp_open(FILENAME, O_RDWR | O_CREAT, S_IRWXU|S_IRWXG|S_IRWXO);
+    filp = filp_open(FILENAME, O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
     if(IS_ERR(filp))
-        printk("open %s error.\n",FILENAME);
+    {
+        printk("%s isn't exist.creat it.\n",FILENAME);
+        filp = filp_open(FILENAME,O_RDWR | O_CREAT,S_IRWXU|S_IRWXG|S_IRWXO);
+        if(IS_ERR(filp))
+        {
+            printk("creat %s fail.\n",FILENAME);
+            return -1;
+        }
+        //data initial
+        old_fs = get_fs();
+        set_fs(get_ds());
+        filp->f_op->write(filp, (char __user *)intp, sizeof(int), &filp->f_pos);
+        set_fs(old_fs);
+    }
    
     old_fs = get_fs();
     set_fs(get_ds());
