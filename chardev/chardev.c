@@ -12,6 +12,53 @@ struct class *char_dev_class;  // class结构用于自动创建设备结点
 static int major = 0;// 0表示动态分配主设备号，可以设置成未被系统分配的具体的数字。
 static struct cdev char_dev_cdev;// 定义一个cdev结构
 static int value = 0;
+#define FILENAME "/data/char_dev.dat"//用于保存用户数据
+static struct file *filp = NULL;
+static int read_from_file(void)
+{
+    int val=0;
+    int* intp=&val;
+    mm_segment_t old_fs;
+    ssize_t ret;
+    printk("read_from_file.\n");
+    filp = filp_open(FILENAME, O_RDWR | O_CREAT, S_IRWXU|S_IRWXG|S_IRWXO);
+    if(IS_ERR(filp))
+        printk("open %s error.\n",FILENAME);
+   
+    old_fs = get_fs();
+    set_fs(get_ds());
+    filp->f_op->llseek(filp,0,0);
+    ret = filp->f_op->read(filp, (char __user *)intp, sizeof(int), &filp->f_pos);
+    set_fs(old_fs);
+   
+    if(ret > 0)
+        printk("read %d from file.\n",*intp);
+    else if(ret == 0)
+        printk("read nothing.\n");
+    else
+    {
+        printk("read error.\n");
+        return -1;
+    }
+    filp_close(filp,NULL);
+    return (*intp);
+}
+
+static void write_to_file(int data)
+{
+    int* intp=&data;
+    mm_segment_t old_fs;
+    printk("write_to_file.\n");
+    filp = filp_open(FILENAME, O_RDWR | O_CREAT, S_IRWXU|S_IRWXG|S_IRWXO);
+    if(IS_ERR(filp))
+        printk("open %s error.\n",FILENAME);
+   
+    old_fs = get_fs();
+    set_fs(get_ds());
+    filp->f_op->write(filp, (char __user *)intp, sizeof(int), &filp->f_pos);
+    set_fs(old_fs);
+    filp_close(filp,NULL);
+}
 
 // 进行初始化设置，打开设备，对应应用空间的open 系统调用 
 int char_dev_open(struct inode *inode, struct file *filp)
@@ -35,6 +82,7 @@ static int char_dev_release (struct inode *node, struct file *file)
 ssize_t char_dev_read(struct file *file,char __user *buff,size_t count,loff_t *offp)
 {
     printk("char_dev device read.\n");
+    value=read_from_file();
     copy_to_user(buff, &value, sizeof(value));
     return 0;
 }
@@ -43,21 +91,23 @@ ssize_t char_dev_write(struct file *file,const char __user *buff,size_t count,lo
 {
     printk("char_dev device write.\n");
     copy_from_user(&value, buff, count);
+    write_to_file(value);
     return 0;
 }
  
 // 实现主要控制功能，控制设备，对应应用空间的ioctl系统调用
 static int char_dev_ioctl(struct inode *inode,struct file *file,unsigned int cmd,unsigned long arg)
 {  
-    printk("char_dev device ioctl.\n");
     switch (cmd)
     {
         case 0://read
+            value=read_from_file();
             *((unsigned int *)arg)=value;
             printk(KERN_ALERT"wzf test ioctl read value=%d!\n",value);
             break;
         case 1://write
             value=(int)arg;
+            write_to_file(value);
             printk(KERN_ALERT"wzf test ioctl write %d!\n",(int)arg); 
             break;
         default:
@@ -127,6 +177,7 @@ static int char_dev_init(void)
         return 0;
     }
     device_create(char_dev_class, NULL, dev, NULL, CHAR_DEV_NODE_NAME);
+    value=read_from_file();//从文件初始化值
     printk("char_dev device installed.\n");
     return 0;
 }
