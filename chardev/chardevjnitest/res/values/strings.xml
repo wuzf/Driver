@@ -4,5 +4,7 @@
     <string name="app_name">chardevjnitest</string>
     <string name="hello_world">Hello world!</string>
     <string name="menu_settings">Settings</string>
+    <string name="Button_Read">Read</string>
+    <string name="Button_Write">Write</string>
 
 </resources>
