@@ -117,7 +117,7 @@ ssize_t char_dev_write(struct file *file,const char __user *buff,size_t count,lo
 }
  
 // 实现主要控制功能，控制设备，对应应用空间的ioctl系统调用
-static int char_dev_ioctl(struct inode *inode,struct file *file,unsigned int cmd,unsigned long arg)
+static int char_dev_ioctl(struct file *file,unsigned int cmd,unsigned long arg)
 {  
     switch (cmd)
     {
@@ -146,7 +146,7 @@ static struct file_operations char_dev_fops =
     .release = char_dev_release, // 关闭设备 
     .read  = char_dev_read,      // 实现设备读功能 
     .write = char_dev_write,     // 实现设备写功能 
-    .ioctl = char_dev_ioctl,     // 实现设备控制功能 
+    .unlocked_ioctl = char_dev_ioctl,     // 实现设备控制功能 
 };
 
 // 设备建立子函数，被char_dev_init函数调用  
