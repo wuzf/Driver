@@ -14,13 +14,21 @@ static struct cdev char_dev_cdev;// 定义一个cdev结构
 static int value = 0;
 #define FILENAME "/data/char_dev.dat"//用于保存用户数据
 static struct file *filp = NULL;
+static int chardev_dbg_enable = 0;  
+module_param_named(dbg_enable, chardev_dbg_enable, int, S_IRUGO|S_IWUSR|S_IWGRP);
+#define DBG(x...) \
+do{\
+    if(chardev_dbg_enable)\
+        printk(KERN_INFO x);\
+}while(0)
+
 static int read_from_file(void)
 {
     int val=0;
     int* intp=&val;
     mm_segment_t old_fs;
     ssize_t ret;
-    printk("read_from_file.\n");
+    DBG("read_from_file.\n");
     filp = filp_open(FILENAME, O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
     if(IS_ERR(filp))
     {
@@ -61,7 +69,7 @@ static void write_to_file(int data)
 {
     int* intp=&data;
     mm_segment_t old_fs;
-    printk("write_to_file.\n");
+    DBG("write_to_file.\n");
     filp = filp_open(FILENAME, O_RDWR | O_CREAT, S_IRWXU|S_IRWXG|S_IRWXO);
     if(IS_ERR(filp))
         printk("open %s error.\n",FILENAME);
@@ -94,7 +102,7 @@ static int char_dev_release (struct inode *node, struct file *file)
 用来找出对用户空间地址的错误使用.*/
 ssize_t char_dev_read(struct file *file,char __user *buff,size_t count,loff_t *offp)
 {
-    printk("char_dev device read.\n");
+    DBG("char_dev device read.\n");
     value=read_from_file();
     copy_to_user(buff, &value, sizeof(value));
     return 0;
@@ -102,7 +110,7 @@ ssize_t char_dev_read(struct file *file,char __user *buff,size_t count,loff_t *o
 // 实现写功能，写设备，对应应用空间的write 系统调用
 ssize_t char_dev_write(struct file *file,const char __user *buff,size_t count,loff_t *offp)
 {
-    printk("char_dev device write.\n");
+    DBG("char_dev device write.\n");
     copy_from_user(&value, buff, count);
     write_to_file(value);
     return 0;
@@ -116,15 +124,15 @@ static int char_dev_ioctl(struct inode *inode,struct file *file,unsigned int cmd
         case 0://read
             value=read_from_file();
             *((unsigned int *)arg)=value;
-            printk(KERN_ALERT"wzf test ioctl read value=%d!\n",value);
+            DBG("wzf test ioctl read value=%d!\n",value);
             break;
         case 1://write
             value=(int)arg;
             write_to_file(value);
-            printk(KERN_ALERT"wzf test ioctl write %d!\n",(int)arg); 
+            DBG("wzf test ioctl write %d!\n",(int)arg); 
             break;
         default:
-            printk(KERN_ALERT"default!"); 
+            DBG("default!"); 
             break;/* Invalid argument */
     }
     return 0;
